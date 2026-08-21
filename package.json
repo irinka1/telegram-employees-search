@@ -1,0 +1,19 @@
+{
+  "name": "telegram-employees-search",
+  "version": "1.0.0",
+  "description": "Telegram bot and mini app for searching employees on Ukrainian sites",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js",
+    "start:tunnel": "powershell -ExecutionPolicy Bypass -File .\\start-cloudflared.ps1"
+  },
+  "dependencies": {
+    "axios": "^1.7.2",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "puppeteer": "^25.8.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "telegraf": "^4.16.3"
+  }
+}

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Поиск сотрудников</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Russo+One&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="noise"></div>
+    <div class="orb orb-a"></div>
+    <div class="orb orb-b"></div>
+
+    <main class="shell">
+      <section class="hero">
+        <div class="eyebrow">Telegram mini app</div>
+        <h1>Поиск сотрудников</h1>
+        <p class="lead">Заполни должность, город, вид занятости и при необходимости минимальный опыт. Бот вернёт карточки кандидатов с фото, возрастом и ссылкой на резюме.</p>
+
+        <form id="search-form" class="panel">
+          <div id="positions-list"></div>
+
+          <button type="button" id="add-position-btn" class="add-position-btn">+ Добавить должность</button>
+
+          <label>
+            <span>Вид занятости</span>
+            <select name="employmentType" required>
+              <option value="any">Любой</option>
+              <option value="full-time">Полная занятость</option>
+              <option value="part-time">Неполная занятость</option>
+              <option value="remote">Удалённая работа</option>
+            </select>
+          </label>
+
+          <label>
+            <span>Минимальный опыт на данной должности (лет)</span>
+            <input type="number" name="minExperienceYears" min="0" step="1" placeholder="Например, 3" />
+          </label>
+
+          <button type="submit">Искать сотрудников</button>
+        </form>
+
+        <template id="position-block-template">
+          <div class="position-block">
+            <div class="position-block-header">
+              <span class="position-block-title"></span>
+              <button type="button" class="remove-position-btn" aria-label="Удалить должность">×</button>
+            </div>
+            <label>
+              <span>Название должности</span>
+              <input type="text" class="position-input" placeholder="Например, Бухгалтер" required />
+            </label>
+            <label>
+              <span>Город</span>
+              <input type="text" class="city-input" placeholder="Например, Киев" required />
+            </label>
+          </div>
+        </template>
+
+        <p id="status" class="status"></p>
+      </section>
+    </main>
+
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
