@@ -1,3 +1,8 @@
+const fs = require('fs');
+const path = require('path');
+
+const STORE_PATH = path.join(__dirname, '..', '..', 'data', 'subscriptions.json');
+
 function getCandidateKey(candidate) {
   return candidate.resumeUrl || `${candidate.source}:${candidate.name}:${candidate.position}`;
 }
@@ -5,27 +10,22 @@ function getCandidateKey(candidate) {
 function createCandidateSubscriptions({ bot, intervalMs, searchCandidates, logger = console }) {
   const subscriptions = new Map();
 
-  function stop(chatId) {
-    const key = String(chatId);
-    const subscription = subscriptions.get(key);
-    if (!subscription) return;
-
-    clearInterval(subscription.intervalId);
-    subscriptions.delete(key);
-  }
-
-  function stopAll() {
-    for (const subscription of subscriptions.values()) {
-      clearInterval(subscription.intervalId);
+  function persist() {
+    try {
+      fs.mkdirSync(path.dirname(STORE_PATH), { recursive: true });
+      const data = Array.from(subscriptions.values()).map((subscription) => ({
+        chatId: subscription.chatId,
+        telegramUsername: subscription.telegramUsername,
+        payload: subscription.payload,
+        seenKeys: Array.from(subscription.seenKeys)
+      }));
+      fs.writeFileSync(STORE_PATH, JSON.stringify(data), 'utf8');
+    } catch (error) {
+      logger.error('Ошибка сохранения подписок на диск:', error);
     }
-    subscriptions.clear();
   }
 
-  function start(chatId, payload, knownCandidates, sendCandidate) {
-    const key = String(chatId);
-    stop(key);
-
-    const seenKeys = new Set((knownCandidates || []).map(getCandidateKey));
+  function createSubscription(chatId, payload, seenKeys, sendCandidate) {
     const subscription = {
       chatId,
       telegramUsername: payload.telegramUsername || '',
@@ -63,6 +63,8 @@ function createCandidateSubscriptions({ bot, intervalMs, searchCandidates, logge
 
         if (!freshCandidates.length) return;
 
+        persist();
+
         await bot.telegram.sendMessage(chatId, 'Появились новые резюме по вашему запросу.');
 
         for (let i = 0; i < freshCandidates.length; i += 1) {
@@ -75,7 +77,56 @@ function createCandidateSubscriptions({ bot, intervalMs, searchCandidates, logge
       }
     }, intervalMs);
 
+    return subscription;
+  }
+
+  function stop(chatId) {
+    const key = String(chatId);
+    const subscription = subscriptions.get(key);
+    if (!subscription) return;
+
+    clearInterval(subscription.intervalId);
+    subscriptions.delete(key);
+    persist();
+  }
+
+  function stopAll() {
+    for (const subscription of subscriptions.values()) {
+      clearInterval(subscription.intervalId);
+    }
+    subscriptions.clear();
+    persist();
+  }
+
+  function start(chatId, payload, knownCandidates, sendCandidate) {
+    const key = String(chatId);
+    stop(key);
+
+    const seenKeys = new Set((knownCandidates || []).map(getCandidateKey));
+    const subscription = createSubscription(chatId, payload, seenKeys, sendCandidate);
     subscriptions.set(key, subscription);
+    persist();
+  }
+
+  function restore(sendCandidate) {
+    let saved;
+    try {
+      saved = JSON.parse(fs.readFileSync(STORE_PATH, 'utf8'));
+    } catch {
+      return;
+    }
+
+    if (!Array.isArray(saved)) return;
+
+    for (const entry of saved) {
+      if (!entry || !entry.chatId) continue;
+
+      const key = String(entry.chatId);
+      const seenKeys = new Set(entry.seenKeys || []);
+      const payload = { ...entry.payload, telegramUsername: entry.telegramUsername };
+      const subscription = createSubscription(entry.chatId, payload, seenKeys, sendCandidate);
+      subscriptions.set(key, subscription);
+    }
   }
 
   function getQueries(chatId) {
@@ -98,6 +149,7 @@ function createCandidateSubscriptions({ bot, intervalMs, searchCandidates, logge
     }
 
     subscription.payload.queries = remaining;
+    persist();
   }
 
   function getAll() {
@@ -115,6 +167,7 @@ function createCandidateSubscriptions({ bot, intervalMs, searchCandidates, logge
     getQueries,
     removeQuery,
     getAll,
+    restore,
     has(chatId) {
       return subscriptions.has(String(chatId));
     }

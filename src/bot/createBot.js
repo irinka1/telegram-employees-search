@@ -165,6 +165,8 @@ function createBot({ config, logger = console }) {
     }
   }
 
+  subscriptions.restore(sendCandidate);
+
   function normalizePositions(payload) {
     const rawPositions = Array.isArray(payload.positions) && payload.positions.length
       ? payload.positions
