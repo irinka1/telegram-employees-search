@@ -286,7 +286,6 @@ function createBot({ config, logger = console }) {
   });
 
   bot.hears(NEW_SEARCH_LABEL, async (ctx) => {
-    subscriptions.stop(ctx.chat.id);
     pendingStopSelection.delete(ctx.chat.id);
 
     const text = isHttpsUrl(getMiniappUrl())
