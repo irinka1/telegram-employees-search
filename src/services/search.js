@@ -488,7 +488,16 @@ function parseRobotaCard(lines, href) {
   };
 }
 
-async function fetchRobotaUaCandidates({ position, city, timeoutMs, limit }) {
+function withTimeout(promise, ms) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error('timeout')), ms);
+  });
+
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+async function fetchRobotaUaCandidatesInner({ position, city, timeoutMs, limit }) {
   let page;
 
   try {
@@ -523,8 +532,23 @@ async function fetchRobotaUaCandidates({ position, city, timeoutMs, limit }) {
     return [];
   } finally {
     if (page) {
-      await page.close().catch(() => {});
+      // page.close() иногда зависает навсегда под нагрузкой (осиротевший renderer-процесс
+      // Chrome) — без своего таймаута это блокирует весь цикл автообновления резюме молча,
+      // без единой ошибки в логах, до перезапуска сервиса.
+      withTimeout(page.close(), 5000).catch(() => {});
     }
+  }
+}
+
+// Любой шаг Puppeteer (запуск браузера, открытие страницы, навигация, закрытие) может
+// зависнуть без ошибки и без таймаута, если сам процесс Chrome стал нездоров. Внешний
+// таймаут гарантирует, что поиск по robota.ua всегда завершится — успехом или пустым
+// результатом — и не заблокирует навсегда всю подписку на автообновление.
+async function fetchRobotaUaCandidates(params) {
+  try {
+    return await withTimeout(fetchRobotaUaCandidatesInner(params), (params.timeoutMs || 20000) + 15000);
+  } catch {
+    return [];
   }
 }
 

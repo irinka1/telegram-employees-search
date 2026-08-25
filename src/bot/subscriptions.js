@@ -7,6 +7,15 @@ function getCandidateKey(candidate) {
   return candidate.resumeUrl || `${candidate.source}:${candidate.name}:${candidate.position}`;
 }
 
+function withTimeout(promise, ms) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error('subscription tick timeout')), ms);
+  });
+
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
 function createCandidateSubscriptions({ bot, intervalMs, searchCandidates, logger = console }) {
   const subscriptions = new Map();
 
@@ -44,13 +53,16 @@ function createCandidateSubscriptions({ bot, intervalMs, searchCandidates, logge
       subscription.isRunning = true;
 
       try {
-        const resultsPerQuery = await Promise.all(
-          subscription.payload.queries.map((query) => searchCandidates({
-            position: query.position,
-            city: query.city,
-            employmentType: subscription.payload.employmentType,
-            minExperienceYears: subscription.payload.minExperienceYears
-          }))
+        const resultsPerQuery = await withTimeout(
+          Promise.all(
+            subscription.payload.queries.map((query) => searchCandidates({
+              position: query.position,
+              city: query.city,
+              employmentType: subscription.payload.employmentType,
+              minExperienceYears: subscription.payload.minExperienceYears
+            }))
+          ),
+          5 * 60 * 1000
         );
 
         const freshCandidates = resultsPerQuery.flat().filter((candidate) => {
@@ -96,6 +108,14 @@ function createCandidateSubscriptions({ bot, intervalMs, searchCandidates, logge
     }
     subscriptions.clear();
     persist();
+  }
+
+  // Останавливает таймеры при завершении процесса, но НЕ трогает файл на диске —
+  // подписки должны пережить перезапуск/деплой, а не только "мягкую" остановку одним пользователем.
+  function haltIntervals() {
+    for (const subscription of subscriptions.values()) {
+      clearInterval(subscription.intervalId);
+    }
   }
 
   function start(chatId, payload, knownCandidates, sendCandidate) {
@@ -164,6 +184,7 @@ function createCandidateSubscriptions({ bot, intervalMs, searchCandidates, logge
     start,
     stop,
     stopAll,
+    haltIntervals,
     getQueries,
     removeQuery,
     getAll,
