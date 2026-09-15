@@ -34,7 +34,7 @@ async function main() {
 
   const shutdown = async () => {
     try {
-      subscriptions.stopAll();
+      subscriptions.haltIntervals();
       await bot.stop();
     } catch (error) {
       console.error('Ошибка остановки Telegram бота:', error);
